@@ -5,11 +5,12 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 const md5 = require("md5")
-
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 const app = express();
 
 app.use(express.static("public"));
-app.set('view engine','ejs');
+app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({
   extended: true
 }));
@@ -23,57 +24,77 @@ const userSchema = mongoose.Schema({
 
 
 
-const User = new mongoose.model("User",userSchema);
+const User = new mongoose.model("User", userSchema);
 
 
-app.get("/", ( req, res)=>{
+app.get("/", (req, res) => {
   res.render("home");
 })
 
-app.get("/login", ( req, res)=>{
+app.get("/login", (req, res) => {
   res.render("login");
 })
 
-app.post("/login", ( req, res)=>{
+app.post("/login", (req, res) => {
   const email = req.body.username;
-  const password = md5(req.body.password);
-console.log(email, password);
-  User.findOne({email: email}, (err, foundUser)=>{
-    if(foundUser){
-      if(foundUser.password === password){
-        res.render("secrets");
-      } else{
-        res.send("Wrong password");
-      }
-    }else{
-      res.send("err");
-    }
+  const password = req.body.password;
+  console.log(email, password);
+  User.findOne({
+    email: email
+  }, (err, foundUser) => {
+    if (foundUser) {
+      bcrypt.compare(password, foundUser.password, (err, result)=>{
+        console.log(foundUser.password);
+        console.log(password);
+        console.log(result);
+        if(result){
+          res.render("secrets");
+        }
+        else {
+          res.send("Wrong password");
+        }
+      })
+    //   if (foundUser.password === password) {
+    //     res.render("secrets");
+    //   } else {
+    //     res.send("Wrong password");
+    //   }
+    // } else {
+    //   res.send("err");
+  } else{
+    res.send(err);
+  }
   })
 })
 
-app.get("/register", ( req, res)=>{
+app.get("/register", (req, res) => {
   res.render("register");
 })
 
-app.post("/register", ( req, res)=>{
-  const user = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  })
-  user.save((err)=>{
-    if(!err){
-      res.send("Successfully registered");
-    } else{
-      res.send(err);
-    }
+app.post("/register", (req, res) => {
+
+  bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+
+    const user = new User({
+      email: req.body.username,
+      password: hash
+    })
+    user.save((err) => {
+      if (!err) {
+        res.send("Successfully registered");
+      } else {
+        res.send(err);
+      }
+    })
+
   })
 })
 
-app.get("/logout", (req, res)=>{
+app.get("/logout", (req, res) => {
   res.redirect("/");
 })
 
 
-app.listen(3000,()=>{
+app.listen(3000, () => {
   console.log("Server running on port 3000.")
 })
